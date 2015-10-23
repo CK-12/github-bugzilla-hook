@@ -30,10 +30,6 @@ import re
 import json
 import hmac
 import hashlib
-
-import sys
-sys.path.append("/usr/lib/python2.7/site-packages/")
-
 import bugzilla
 
 
