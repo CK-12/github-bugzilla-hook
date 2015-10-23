@@ -78,7 +78,7 @@ def application(environ, start_response):
     post_data = environ['wsgi.input'].read(content_length)
 
     # If a secret was set, validate the post data
-    if 'GHEH_GITHUB_SECRET' in os.environ:
+    if 'GHBH_GITHUB_SECRET' in os.environ:
         if 'HTTP_X_HUB_SIGNATURE' not in environ:
             print("Missing signature", file=environ['wsgi.errors'])
             start_response('401 Unauthorized', response_headers)
@@ -90,7 +90,7 @@ def application(environ, start_response):
             start_response('401 Unauthorized', response_headers)
             return [b'Invalid signature']
 
-        digester = hmac.new(os.environ['GHEH_GITHUB_SECRET'].encode('utf-8'),
+        digester = hmac.new(os.environ['GHBH_GITHUB_SECRET'].encode('utf-8'),
                 msg=post_data, digestmod=hashlib.sha1)
         if 'sha1=' + digester.hexdigest() != environ['HTTP_X_HUB_SIGNATURE']:
             print("Signature mismatch", file=environ['wsgi.errors'])
@@ -257,7 +257,7 @@ if __name__ == '__main__':
     from wsgiref.simple_server import make_server
 
     try:
-        httpd = make_server('', os.environ.get('GHEH_HTTP_PORT', 8080), application)
+        httpd = make_server('', os.environ.get('GHBH_HTTP_PORT', 8080), application)
         httpd.serve_forever()
     except KeyboardInterrupt:
         print("Exiting on user interrupt")
