@@ -245,7 +245,7 @@ def post_to_bugzilla(bz, data):
                 break
 
         if not has_comment:
-            bz.update_bugs(bug_id, {'comment': {'comment': text, 'is_private': True}})
+            bz.update_bugs(bug_id, {'comment': {'comment': text, 'is_private': False}})
             posts += 1
 
     return posts
