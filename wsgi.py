@@ -31,7 +31,7 @@ import json
 import hmac
 import hashlib
 import bugzilla
-
+from __future__ import print_function
 
 def application(environ, start_response):
     """ Entry point for mod_wsgi """
