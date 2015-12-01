@@ -100,7 +100,12 @@ def application(environ, start_response):
             return [b'Invalid signature\n']
 
 
-    bz = bugzilla.Bugzilla(url=os.environ['GHBH_BUGZILLA_URL'])
+    home_dir = os.environ.get('OPENSHIFT_DATA_DIR', os.environ.get('HOME', ''))
+    cookie_file = os.path.join(home_dir, '.bugzillacookies')
+    bz = bugzilla.Bugzilla(
+                        url=os.environ['GHBH_BUGZILLA_URL'],
+                        cookiefile=cookie_file
+                    )
     try:
         bz.login(os.environ['GHBH_BUGZILLA_USERNAME'], os.environ['GHBH_BUGZILLA_PASSWORD'])
     except bugzilla.BugzillaError as e:
