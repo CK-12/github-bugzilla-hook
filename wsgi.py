@@ -25,13 +25,15 @@
 # For use with mod_wsgi, though it could probably be run ok with the wsgiref
 # httpd.
 
+from __future__ import print_function
+
 import os
 import re
 import json
 import hmac
 import hashlib
 import bugzilla
-from __future__ import print_function
+
 
 def application(environ, start_response):
     """ Entry point for mod_wsgi """
