@@ -20,7 +20,8 @@ Configuration
 
 This service uses several environment variables for its configuration.
 
-* *GHBH_BUGZILLA_URL* - The XML-RPC url to Bugzilla
+* *GHBH_BUGZILLA_URL* - The XML-RPC url to Bugzilla, for example
+https://bugzilla.redhat.com/xmlrpc.cgi
 * *GHBH_BUGZILLA_USERNAME* -  Username to read and post comments
 * *GHBH_BUGZILLA_PASSWORD* - Login password
 
