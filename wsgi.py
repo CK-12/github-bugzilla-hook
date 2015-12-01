@@ -102,9 +102,11 @@ def application(environ, start_response):
 
     home_dir = os.environ.get('OPENSHIFT_DATA_DIR', os.environ.get('HOME', ''))
     cookie_file = os.path.join(home_dir, '.bugzillacookies')
+    token_file = os.path.join(home_dir, '.bugzillatoken')
     bz = bugzilla.Bugzilla(
                         url=os.environ['GHBH_BUGZILLA_URL'],
-                        cookiefile=cookie_file
+                        cookiefile=cookie_file,
+                        tokenfile=token_file
                     )
     try:
         bz.login(os.environ['GHBH_BUGZILLA_USERNAME'], os.environ['GHBH_BUGZILLA_PASSWORD'])
