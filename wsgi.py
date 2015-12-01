@@ -47,31 +47,31 @@ def application(environ, start_response):
         'GHBH_BUGZILLA_PASSWORD' not in os.environ:
         print("Missing required environment variables", file=environ['wsgi.errors'])
         start_response('500 Internal Server Error', response_headers)
-        return [b'Service not properly configured, please check that all mandatory environment variables are set']
+        return [b'Service not properly configured, please check that all mandatory environment variables are set\n']
 
     # Check that this request is the right kind of thing: a POST of type
     # application/json with a known length
     if environ['REQUEST_METHOD'] != 'POST':
         start_response('405 Method Not Allowed', response_headers)
-        return [b'Only POST messages are accepted']
+        return [b'Only POST messages are accepted\n']
 
     if 'CONTENT_TYPE' not in environ or environ['CONTENT_TYPE'] != 'application/json':
         print("Invalid content-type %s" % environ.get('CONTENT_TYPE', None),
                 file=environ['wsgi.errors'])
         start_response('415 Unsupported Media Type', response_headers)
-        return [b'Requests must be of type application/json']
+        return [b'Requests must be of type application/json\n']
 
     try:
         content_length = int(environ['CONTENT_LENGTH'])
     except (KeyError, ValueError):
         start_response('411 Length required', response_headers)
-        return [b'Invalid content length']
+        return [b'Invalid content length\n']
 
     # Look for the github headers
     if 'HTTP_X_GITHUB_EVENT' not in environ:
         print("Missing X-Github-Event", file=environ['wsgi.errors'])
         start_response('400 Bad Request', response_headers)
-        return [b'Invalid event type']
+        return [b'Invalid event type\n']
 
     event_type = environ['HTTP_X_GITHUB_EVENT']
 
@@ -84,20 +84,20 @@ def application(environ, start_response):
         if 'HTTP_X_HUB_SIGNATURE' not in environ:
             print("Missing signature", file=environ['wsgi.errors'])
             start_response('401 Unauthorized', response_headers)
-            return [b'Missing signature']
+            return [b'Missing signature\n']
 
         # Only sha1 is used currently
         if not environ['HTTP_X_HUB_SIGNATURE'].startswith('sha1='):
             print("Signature not sha1", file=environ['wsgi.errors'])
             start_response('401 Unauthorized', response_headers)
-            return [b'Invalid signature']
+            return [b'Invalid signature\n']
 
         digester = hmac.new(os.environ['GHBH_GITHUB_SECRET'].encode('utf-8'),
                 msg=post_data, digestmod=hashlib.sha1)
         if 'sha1=' + digester.hexdigest() != environ['HTTP_X_HUB_SIGNATURE']:
             print("Signature mismatch", file=environ['wsgi.errors'])
             start_response('401 Unauthorized', response_headers)
-            return [b'Invalid signature']
+            return [b'Invalid signature\n']
 
 
     bz = bugzilla.Bugzilla(url=os.environ['GHBH_BUGZILLA_URL'])
@@ -106,7 +106,7 @@ def application(environ, start_response):
     except bugzilla.BugzillaError as e:
         print("Bugzilla error: %s" % e.message , file=environ['wsgi.errors'])
         start_response('500 Internal Server Error', response_headers)
-        return [b'Bugzilla error: %s' % e.message]
+        return [b'Bugzilla error: %s\n' % e.message]
 
     # Convert the post data to a string so we can start actually using it
     # JSON is required to be in utf-8, utf-16, or utf-32, but github only ever
@@ -116,7 +116,7 @@ def application(environ, start_response):
     except UnicodeDecodeError:
         print("Unable to decode JSON", file=environ['wsgi.errors'])
         start_response('400 Bad Request', response_headers)
-        return [b'Invalid data']
+        return [b'Invalid data\n']
 
     # Parse the post data
     try:
@@ -124,7 +124,7 @@ def application(environ, start_response):
     except ValueError:
         print("Unable to parse JSON", file=environ['wsgi.errors'])
         start_response('400 Bad Request', response_headers)
-        return [b'Invalid data']
+        return [b'Invalid data\n']
 
     # Done with parsing the request, dispatch the data to the event handler
     if event_type == "push":
