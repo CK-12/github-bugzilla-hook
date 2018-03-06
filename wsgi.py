@@ -159,8 +159,7 @@ def get_bugs(data):
         https://developer.github.com/v3/activity/events/types/#pushevent
     """
 
-    supported_cmds = {'fix':        'Fixed',
-                      'fixed':      'Fixed',
+    supported_cmds = {'fixed':      'Fixed',
                       'fixes':      'Fixed',
                       'addresses':  'Refers',
                       're':         'Refers',
