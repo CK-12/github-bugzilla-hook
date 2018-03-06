@@ -28,12 +28,19 @@
 from __future__ import print_function
 
 import os
+import sys
 import re
 import json
 import hmac
 import hashlib
 import bugzilla
 
+HOME_DIR = '/var/www/github-bugzilla-hook'
+
+sys.path.insert(0, HOME_DIR)
+from settings import setEnv
+setEnv()
+    
 
 def application(environ, start_response):
     """ Entry point for mod_wsgi """
@@ -78,6 +85,7 @@ def application(environ, start_response):
     # Read the post data
     # Errors will be automatically converted to a 500
     post_data = environ['wsgi.input'].read(content_length)
+    print("post_data: %s" % post_data)
 
     # If a secret was set, validate the post data
     if 'GHBH_GITHUB_SECRET' in os.environ:
@@ -100,7 +108,10 @@ def application(environ, start_response):
             return [b'Invalid signature\n']
 
 
-    home_dir = os.environ.get('OPENSHIFT_DATA_DIR', os.environ.get('HOME', ''))
+    global HOME_DIR
+    home_dir = HOME_DIR
+    if not home_dir:
+        home_dir = os.environ.get('OPENSHIFT_DATA_DIR', os.environ.get('HOME', ''))
     cookie_file = os.path.join(home_dir, '.bugzillacookies')
     token_file = os.path.join(home_dir, '.bugzillatoken')
     bz = bugzilla.Bugzilla(
@@ -174,12 +185,12 @@ def get_bugs(data):
         # look for bugs in the message body
         for bodyline in body:
             bodyline = bodyline.strip()
-            m = re.match(r"^(Resolves|Related|Conflicts):\ +rhbz#\d+.*$", bodyline)
+            m = re.match(r"^(Resolves|Related|Conflicts|Fixes|Fixed):\ +rhbz#\d+.*$", bodyline)
 
             if not m:
                 continue
 
-            actionre = re.search("(Resolves|Related|Conflicts)", bodyline)
+            actionre = re.search("(Resolves|Related|Conflicts|Fixes|Fixed)", bodyline)
             bugre = re.search(r"\d+", bodyline)
             if actionre and bugre:
                 action = actionre.group()
