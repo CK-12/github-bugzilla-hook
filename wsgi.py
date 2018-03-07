@@ -41,7 +41,7 @@ sys.path.insert(0, HOME_DIR)
 from settings import setEnv
 setEnv()
 
-FORCE_COMMENT = False
+FORCE_COMMENT = True
     
 
 def application(environ, start_response):
@@ -189,6 +189,7 @@ def get_bugs(data):
         summary = message.split("\n")[0].strip()
         body = message.split("\n")[1:]
         msg = summary + " ".join(body)
+        print("commit msg: [%s]" % msg)
 	cmd_groups = command_re.findall(msg)
 
         for command, bugstrs in cmd_groups:
@@ -214,6 +215,11 @@ def get_comments(data):
 
     bugs = get_bugs(data)
     branch = data["ref"].replace("refs/heads/", "")
+    changedIn = []
+    if branch == "master":
+        changedIn.append("master")
+    elif branch.startswith("release"):
+        changedIn.append(branch.replace("release-", "").replace("release/", "").replace("releases/", ""))
     comments = {}
 
     for bug in bugs.keys():
@@ -232,9 +238,9 @@ Date:   %s
         indent(commit["message"])
     )
             if not bug in comments:
-                comments[bug] = (comment, action)
+                comments[bug] = {'comment': comment, 'action': action, 'changedIn': changedIn, 'id': commit['id']}
             else:
-                comments[bug][0] += comment
+                comments[bug]['comment'] += comment
 
     print("comments: [%s]" % comments)
     return comments
@@ -247,8 +253,10 @@ def post_to_bugzilla(bz, data):
     posts = 0
 
     for bug_id in comments.keys():
-        text = comments[bug_id][0].strip()
-        action = comments[bug_id][1]
+        text = comments[bug_id]['comment'].strip()
+        action = comments[bug_id]['action']
+        changedIn = comments[bug_id]['changedIn']
+        revid = comments[bug_id]['id']
         has_comment = False
 
         # search by commits for particular branches
@@ -265,10 +273,12 @@ def post_to_bugzilla(bz, data):
             comment_text = bug_comment['text'].strip()
             if branch and comment_text.find(branch) > -1:
                 has_comment = True
+                print("Found the comment for id: %s. Skipping? [%s]" % (revid, not FORCE_COMMENT))
                 break
 
         if not has_comment or FORCE_COMMENT:
-	    updateParams = bz.build_update(comment=text) 
+            updateParams = bz.build_update(comment=text, keywords_add=changedIn) 
+            updateParams['cf_fixversion'] = revid
             if action == 'Fixed':
                 updateParams['status'] = 'RESOLVED'
                 updateParams['resolution'] = 'FIXED'
