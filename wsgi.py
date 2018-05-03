@@ -185,6 +185,9 @@ def get_bugs(data):
 
     for commit in data["commits"]:
         sha = commit["id"]
+        if not commit.get('distinct', False):
+            print("Skipping the commit because it is not distinct: %s" % sha)
+            continue
         message = commit["message"]
         summary = message.split("\n")[0].strip()
         body = message.split("\n")[1:]
@@ -194,6 +197,8 @@ def get_bugs(data):
 
         for command, bugstrs in cmd_groups:
             print("Processing command[%s], bugs[%s]" % (command, bugstrs))
+            if command == 'request':
+                continue
             bug = bug_re.findall(bugstrs)[0]
             action = supported_cmds.get(command.lower(),'')
             if bug not in bugs:
