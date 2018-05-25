@@ -243,7 +243,7 @@ Date:   %s
         indent(commit["message"])
     )
             if not bug in comments:
-                comments[bug] = {'comment': comment, 'action': action, 'changedIn': changedIn, 'id': commit['id']}
+                comments[bug] = {'comment': comment, 'action': action, 'changedIn': changedIn, 'id': commit['id'], 'branch': branch}
             else:
                 comments[bug]['comment'] += comment
 
@@ -262,6 +262,7 @@ def post_to_bugzilla(bz, data):
         action = comments[bug_id]['action']
         changedIn = comments[bug_id]['changedIn']
         revid = comments[bug_id]['id']
+        branchName = comments[bug_id]['branch']
         has_comment = False
 
         # search by commits for particular branches
@@ -281,9 +282,20 @@ def post_to_bugzilla(bz, data):
                 print("Found the comment for id: %s. Skipping? [%s]" % (revid, not FORCE_COMMENT))
                 break
 
+        ## Get existing branches in bug
+        bugObj = bz.getbug(bug_id)
+        existingBranches = bugObj.cf_commit_branch
+        if existingBranches:
+            existingBranches = [ x.strip() for x in existingBranches.split(',')]
+        else:
+            existingBranches = []
+        if branchName not in existingBranches:
+            existingBranches.append(branchName)
+
         if not has_comment or FORCE_COMMENT:
             updateParams = bz.build_update(comment=text, keywords_add=changedIn) 
             updateParams['cf_fixversion'] = revid
+            updateParams['cf_commit_branch'] = ', '.join(existingBranches)
             if action == 'Fixed':
                 updateParams['status'] = 'RESOLVED'
                 updateParams['resolution'] = 'FIXED'
