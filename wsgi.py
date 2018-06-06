@@ -220,11 +220,11 @@ def get_comments(data):
 
     bugs = get_bugs(data)
     branch = data["ref"].replace("refs/heads/", "")
-    changedIn = []
-    if branch == "master":
-        changedIn.append("master")
-    elif branch.startswith("release"):
-        changedIn.append(branch.replace("release-", "").replace("release/", "").replace("releases/", ""))
+    #changedIn = []
+    #if branch == "master":
+    #    changedIn.append("master")
+    #elif branch.startswith("release"):
+    #    changedIn.append(branch.replace("release-", "").replace("release/", "").replace("releases/", ""))
     comments = {}
 
     for bug in bugs.keys():
@@ -243,7 +243,8 @@ Date:   %s
         indent(commit["message"])
     )
             if not bug in comments:
-                comments[bug] = {'comment': comment, 'action': action, 'changedIn': changedIn, 'id': commit['id'], 'branch': branch}
+                #comments[bug] = {'comment': comment, 'action': action, 'changedIn': changedIn, 'id': commit['id'], 'branch': branch}
+                comments[bug] = {'comment': comment, 'action': action, 'id': commit['id'], 'branch': branch}
             else:
                 comments[bug]['comment'] += comment
 
@@ -260,7 +261,7 @@ def post_to_bugzilla(bz, data):
     for bug_id in comments.keys():
         text = comments[bug_id]['comment'].strip()
         action = comments[bug_id]['action']
-        changedIn = comments[bug_id]['changedIn']
+        #changedIn = comments[bug_id]['changedIn']
         revid = comments[bug_id]['id']
         branchName = comments[bug_id]['branch']
         has_comment = False
@@ -293,7 +294,7 @@ def post_to_bugzilla(bz, data):
             existingBranches.append(branchName)
 
         if not has_comment or FORCE_COMMENT:
-            updateParams = bz.build_update(comment=text, keywords_add=changedIn) 
+            updateParams = bz.build_update(comment=text) #, keywords_add=changedIn) 
             updateParams['cf_fixversion'] = revid
             updateParams['cf_commit_branch'] = ', '.join(existingBranches)
             if action == 'Fixed':
