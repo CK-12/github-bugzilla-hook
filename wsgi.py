@@ -190,7 +190,7 @@ def get_bugs(data):
 		    'id': '',
 		    'distinct': True,
 		    'message': data['pull_request'].get('title', '') + '\n' + data['pull_request']['body'],
-		    'url': data['pull_request']['diff_url'],
+		    'url': data['pull_request']['html_url'] + '/files',
 		    'author': { 'name': data['pull_request']['user']['login'], 'email': '' },
 		    'timestamp': data['pull_request']['created_at'],
 		},
