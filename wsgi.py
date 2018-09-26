@@ -42,7 +42,7 @@ from settings import setEnv
 setEnv()
 
 FORCE_COMMENT = True
-    
+
 
 def application(environ, start_response):
     """ Entry point for mod_wsgi """
@@ -83,6 +83,7 @@ def application(environ, start_response):
         return [b'Invalid event type\n']
 
     event_type = environ['HTTP_X_GITHUB_EVENT']
+    print("event_type: %s" % event_type)
 
     # Read the post data
     # Errors will be automatically converted to a 500
@@ -147,8 +148,8 @@ def application(environ, start_response):
         return [b'Invalid data\n']
 
     # Done with parsing the request, dispatch the data to the event handler
-    if event_type == "push":
-        post_to_bugzilla(bz, event_data)
+    if event_type in ["push", "pull_request"]:
+        post_to_bugzilla(bz, event_data, event_type)
 
     start_response('200 OK', response_headers)
     return [b'']
@@ -183,6 +184,18 @@ def get_bugs(data):
 
     #find all references to bugzilla bugs
 
+    if not 'commits' in data and data.get('pull_request'):
+        data['commits'] = [
+		{
+		    'id': '',
+		    'distinct': True,
+		    'message': data['pull_request'].get('title', '') + '\n' + data['pull_request']['body'],
+		    'url': data['pull_request']['diff_url'],
+		    'author': { 'name': data['pull_request']['user']['login'], 'email': '' },
+		    'timestamp': data['pull_request']['created_at'],
+		},
+	    ]
+
     for commit in data["commits"]:
         sha = commit["id"]
         if not commit.get('distinct', False):
@@ -210,7 +223,7 @@ def get_bugs(data):
 
     return bugs
 
-def get_comments(data):
+def get_comments(data, event_type):
     """
         https://developer.github.com/v3/activity/events/types/#pushevent
     """
@@ -219,43 +232,48 @@ def get_comments(data):
         return padding + ('\n'+padding).join(lines.split('\n'))
 
     bugs = get_bugs(data)
-    branch = data["ref"].replace("refs/heads/", "")
-    #changedIn = []
-    #if branch == "master":
-    #    changedIn.append("master")
-    #elif branch.startswith("release"):
-    #    changedIn.append(branch.replace("release-", "").replace("release/", "").replace("releases/", ""))
+    branch, pr_url, pr_action = '', '', ''
+    if 'ref' in data:
+        branch = data["ref"].replace("refs/heads/", "")
+    elif 'pull_request' in data:
+        pr_url = data['pull_request'].get('html_url')
+        pr_state = data['pull_request'].get('state')
     comments = {}
 
+    #print(bugs)
     for bug in bugs.keys():
         for commit, action in bugs[bug]:
+            author = commit['author']['name']
+            if commit['author']['email']:
+                author += ' <' + commit['author']['email'] + '>'
+            brinfo = ''
+            if branch:
+                brinfo = 'Branch:        %s' % branch
+            elif pr_url:
+                action = ''
+                brinfo = 'Pull Request:  %s [State: %s]' % (pr_url, pr_state)
             comment = """
+Patch:         %s
 %s
-Branch: %s
-Author: %s <%s>
-Date:   %s
+Author:        %s
+Date:          %s
 
 %s
-""" % (
-        commit["url"], branch,
-        commit["author"]["name"], commit["author"]["email"],
-        commit["timestamp"].replace("T", " "),
-        indent(commit["message"])
-    )
+""" % (commit["url"], brinfo, author, commit["timestamp"].replace("T", " "), indent(commit["message"]))
             if not bug in comments:
                 #comments[bug] = {'comment': comment, 'action': action, 'changedIn': changedIn, 'id': commit['id'], 'branch': branch}
-                comments[bug] = {'comment': comment, 'action': action, 'id': commit['id'], 'branch': branch}
+                comments[bug] = {'comment': comment, 'action': action, 'id': commit['id'], 'branch': branch, 'pr_url': pr_url }
             else:
                 comments[bug]['comment'] += comment
 
     print("comments: [%s]" % comments)
     return comments
 
-def post_to_bugzilla(bz, data):
+def post_to_bugzilla(bz, data, event_type):
     """
         Return the number of posted bugs for testing purposes
     """
-    comments = get_comments(data)
+    comments = get_comments(data, event_type)
     posts = 0
 
     for bug_id in comments.keys():
@@ -290,11 +308,11 @@ def post_to_bugzilla(bz, data):
             existingBranches = [ x.strip() for x in existingBranches.split(',')]
         else:
             existingBranches = []
-        if branchName not in existingBranches:
+        if branchName and branchName not in existingBranches:
             existingBranches.append(branchName)
 
         if not has_comment or FORCE_COMMENT:
-            updateParams = bz.build_update(comment=text) #, keywords_add=changedIn) 
+            updateParams = bz.build_update(comment=text) #, keywords_add=changedIn)
             updateParams['cf_fixversion'] = revid
             updateParams['cf_commit_branch'] = ', '.join(existingBranches)
             if action == 'Fixed':
