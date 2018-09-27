@@ -55,32 +55,27 @@ def application(environ, start_response):
         'GHBH_BUGZILLA_USERNAME' not in os.environ or \
         'GHBH_BUGZILLA_PASSWORD' not in os.environ:
         print("Missing required environment variables", file=environ['wsgi.errors'])
-        start_response('500 Internal Server Error', response_headers)
-        return [b'Service not properly configured, please check that all mandatory environment variables are set\n']
+        return http_error(start_response, '500 Internal Server Error', 'Service not properly configured, please check that all mandatory environment variables are set')
 
     # Check that this request is the right kind of thing: a POST of type
     # application/json with a known length
     if environ['REQUEST_METHOD'] != 'POST':
-        start_response('405 Method Not Allowed', response_headers)
-        return [b'Only POST messages are accepted\n']
+        return http_error(start_response, '405 Method Not Allowed', 'Only POST messages are accepted')
 
     if 'CONTENT_TYPE' not in environ or environ['CONTENT_TYPE'] != 'application/json':
         print("Invalid content-type %s" % environ.get('CONTENT_TYPE', None),
                 file=environ['wsgi.errors'])
-        start_response('415 Unsupported Media Type', response_headers)
-        return [b'Requests must be of type application/json\n']
+        return http_error(start_response, '415 Unsupported Media Type', 'Requests must be of type application/json')
 
     try:
         content_length = int(environ['CONTENT_LENGTH'])
     except (KeyError, ValueError):
-        start_response('411 Length required', response_headers)
-        return [b'Invalid content length\n']
+        return http_error(start_response, '411 Length required', 'Invalid content length')
 
     # Look for the github headers
     if 'HTTP_X_GITHUB_EVENT' not in environ:
         print("Missing X-Github-Event", file=environ['wsgi.errors'])
-        start_response('400 Bad Request', response_headers)
-        return [b'Invalid event type\n']
+        return http_error(start_response, '400 Bad Request', 'Invalid event type')
 
     event_type = environ['HTTP_X_GITHUB_EVENT']
     print("event_type: %s" % event_type)
@@ -94,21 +89,18 @@ def application(environ, start_response):
     if 'GHBH_GITHUB_SECRET' in os.environ:
         if 'HTTP_X_HUB_SIGNATURE' not in environ:
             print("Missing signature", file=environ['wsgi.errors'])
-            start_response('401 Unauthorized', response_headers)
-            return [b'Missing signature\n']
+            return http_error(start_response, '401 Unauthorized', 'Invalid signature')
 
         # Only sha1 is used currently
         if not environ['HTTP_X_HUB_SIGNATURE'].startswith('sha1='):
             print("Signature not sha1", file=environ['wsgi.errors'])
-            start_response('401 Unauthorized', response_headers)
-            return [b'Invalid signature\n']
+            return http_error(start_response, '401 Unauthorized', 'Invalid signature')
 
         digester = hmac.new(os.environ['GHBH_GITHUB_SECRET'].encode('utf-8'),
                 msg=post_data, digestmod=hashlib.sha1)
         if 'sha1=' + digester.hexdigest() != environ['HTTP_X_HUB_SIGNATURE']:
             print("Signature mismatch", file=environ['wsgi.errors'])
-            start_response('401 Unauthorized', response_headers)
-            return [b'Invalid signature\n']
+            return http_error(start_response, '401 Unauthorized', 'Invalid signature')
 
 
     global HOME_DIR
@@ -126,8 +118,7 @@ def application(environ, start_response):
         bz.login(os.environ['GHBH_BUGZILLA_USERNAME'], os.environ['GHBH_BUGZILLA_PASSWORD'])
     except bugzilla.BugzillaError as e:
         print("Bugzilla error: %s" % e.message , file=environ['wsgi.errors'])
-        start_response('500 Internal Server Error', response_headers)
-        return [b'Bugzilla error: %s\n' % e.message]
+        return http_error(start_response, '500 Internal Server Error', 'Bugzilla error: %s' % e.message)
 
     # Convert the post data to a string so we can start actually using it
     # JSON is required to be in utf-8, utf-16, or utf-32, but github only ever
@@ -137,17 +128,16 @@ def application(environ, start_response):
     except UnicodeDecodeError:
         print("Unable to decode JSON", file=environ['wsgi.errors'])
         start_response('400 Bad Request', response_headers)
-        return [b'Invalid data\n']
+        return http_error(start_response, '400 Bad Request', 'Invalid data')
 
     # Parse the post data
     try:
         if 'bug' not in post_str.lower():
-            return skip_processing(b'No bug string found. Skipping.')
+            return skip_processing(start_response, 'No bug string found. Skipping.')
         event_data = json.loads(post_str)
     except ValueError:
         print("Unable to parse JSON", file=environ['wsgi.errors'])
-        start_response('400 Bad Request', response_headers)
-        return [b'Invalid data\n']
+        return http_error(start_response, '400 Bad Request', 'Invalid data')
 
     # Done with parsing the request, dispatch the data to the event handler
     if event_type in ["push", "pull_request"]:
@@ -156,16 +146,29 @@ def application(environ, start_response):
             pr_action = event_data.get('action')
             if not pr_action or pr_action.lower() not in [ 'opened', 'merged', 'closed']:
                 print("Skipping pr_action[%s]" % (pr_action))
-                return skip_processing(b'Skipping invalid PR action.')
+                return skip_processing(start_response, 'Skipping unsupported PR action [%s].' % pr_action)
 
         post_to_bugzilla(bz, event_data, event_type)
 
     start_response('200 OK', response_headers)
     return [b'']
 
-def skip_processing(msg):
+def safe_decode(s):
+    return s.decode('utf-8') if s and type(s).__name__ == 'str' else s
+
+def safe_encode(s):
+    return s.encode('utf-8') if s and type(s).__name__ == 'unicode' else s
+
+def http_error(start_response, codeStr, msg):
+    response_headers = [('Content-Type', 'text/plain')]
+    start_response(codeStr, response_headers)
+    return [safe_encode(msg + '\n')]
+
+def skip_processing(start_response, msg):
+    response_headers = [('Content-Type', 'text/plain')]
     start_response('200 OK', response_headers)
-    return [msg]
+    print("skip_processing: [%s]" % msg)
+    return [safe_encode(msg + '\n')]
 
 def get_bugs(data):
     """
