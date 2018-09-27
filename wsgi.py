@@ -149,6 +149,13 @@ def application(environ, start_response):
 
     # Done with parsing the request, dispatch the data to the event handler
     if event_type in ["push", "pull_request"]:
+        if event_type == 'pull_request':
+            ## Get action
+            pr_action = event_data.get('action')
+            if not pr_action or pr_action.lower() not in [ 'opened', 'merged', 'closed']:
+                print("Skipping pr_action[%s]" % (pr_action))
+                start_response('200 OK', response_headers)
+                return [b'Skipping!']
         post_to_bugzilla(bz, event_data, event_type)
 
     start_response('200 OK', response_headers)
@@ -185,10 +192,6 @@ def get_bugs(data):
     #find all references to bugzilla bugs
 
     if not 'commits' in data and data.get('pull_request'):
-        pr_action = data.get('action')
-        if not pr_action or pr_action.lower() not in [ 'opened', 'merged', 'closed']:
-            print("Skipping pr_action[%s]" % (pr_action))
-            return {}
         data['commits'] = [
 		{
 		    'id': '',
