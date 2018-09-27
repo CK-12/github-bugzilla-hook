@@ -217,7 +217,8 @@ def get_bugs(data):
         summary = message.split("\n")[0].strip()
         body = message.split("\n")[1:]
         msg = summary + " ".join(body)
-        print("commit msg: [%s]" % msg)
+        ## Causes UnicodeEncode error
+        #print("commit msg: [%s]" % msg)
 	cmd_groups = command_re.findall(msg)
 
         for command, bugstrs in cmd_groups:
@@ -278,7 +279,7 @@ Date:          %s
             else:
                 comments[bug]['comment'] += comment
 
-    print("comments: [%s]" % comments)
+    #print("comments: [%s]" % comments)
     return comments
 
 def post_to_bugzilla(bz, data, event_type):
