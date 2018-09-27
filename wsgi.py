@@ -185,6 +185,10 @@ def get_bugs(data):
     #find all references to bugzilla bugs
 
     if not 'commits' in data and data.get('pull_request'):
+        pr_action = data.get('action')
+        if not pr_action or pr_action.lower() not in [ 'opened', 'merged', 'closed']:
+            print("Skipping pr_action[%s]" % (pr_action))
+            return {}
         data['commits'] = [
 		{
 		    'id': '',
@@ -237,7 +241,7 @@ def get_comments(data, event_type):
         branch = data["ref"].replace("refs/heads/", "")
     elif 'pull_request' in data:
         pr_url = data['pull_request'].get('html_url')
-        pr_state = data['pull_request'].get('state')
+        pr_state = data.get('action')
     comments = {}
 
     #print(bugs)
@@ -251,7 +255,7 @@ def get_comments(data, event_type):
                 brinfo = 'Branch:        %s' % branch
             elif pr_url:
                 action = ''
-                brinfo = 'Pull Request:  %s [State: %s]' % (pr_url, pr_state)
+                brinfo = 'Pull Request:  %s [%s]' % (pr_url, pr_state)
             comment = """
 Patch:         %s
 %s
